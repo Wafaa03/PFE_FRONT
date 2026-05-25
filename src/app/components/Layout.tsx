@@ -7,7 +7,7 @@ export function Layout() {
     { path: "/", label: "Home", icon: Home },
     { path: "/emails", label: "Emails", icon: Mail },
     { path: "/ai-assistant", label: "AI Assistant", icon: MessageSquare },
-    { path: "/contract-analysis", label: "Contract Analysis", icon: FileText },
+
     { path: "/knowledge-base", label: "Knowledge Base", icon: BookOpen },
   ];
 

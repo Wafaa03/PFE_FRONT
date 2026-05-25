@@ -78,14 +78,14 @@ export function AIAssistant() {
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#FFF8DC]">
+    <div className="flex flex-col h-screen bg-[#FFF8DC]">
       {/* Page Header */}
       <div className="bg-white border-b border-gray-200 px-8 py-6">
         <h1 className="text-2xl font-semibold text-[#806B64]">AI Legal Assistant</h1>
       </div>
 
       {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto px-8 py-6">
+      <div className="flex-1 overflow-y-auto scroll-smooth px-8 py-6">
         <div className="max-w-4xl mx-auto space-y-6">
           {messages.map((message) => (
             <div key={message.id}>
