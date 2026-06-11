@@ -1,12 +1,35 @@
-import { useState } from "react";
-import { Send, Sparkles, Copy, Check, Loader2, Mail, MessageSquare } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Send, Sparkles, Copy, Check, Loader2, Mail, MessageSquare, History } from "lucide-react";
 import { apiFetch } from "../lib/auth";
+
+interface EmailHistoryItem {
+  id: number;
+  original_email: string;
+  suggested_reply: string;
+  timestamp: string;
+}
 
 export function Emails() {
   const [emailInput, setEmailInput] = useState("");
   const [suggestion, setSuggestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [history, setHistory] = useState<EmailHistoryItem[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+  const [showHistory, setShowHistory] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await apiFetch("/api/email-history");
+        if (res.ok) setHistory(await res.json());
+      } catch (e) {
+        console.error("Failed to load email history", e);
+      } finally {
+        setLoadingHistory(false);
+      }
+    })();
+  }, []);
 
   const handleGenerate = async () => {
     if (!emailInput.trim()) return;
@@ -14,7 +37,6 @@ export function Emails() {
     setSuggestion("");
 
     try {
-      // Privacy anonymization is handled server-side before the Groq API call.
       const response = await apiFetch("/api/email-suggest", {
         method: "POST",
         body: JSON.stringify({ email_body: emailInput }),
@@ -22,6 +44,10 @@ export function Emails() {
 
       const data = await response.json();
       setSuggestion(data.answer || "");
+
+      // Refresh history
+      const histRes = await apiFetch("/api/email-history");
+      if (histRes.ok) setHistory(await histRes.json());
     } catch (err) {
       console.error("Suggestion fetch failed", err);
       setSuggestion("[Error generating suggestion. Make sure the backend is running.]");
@@ -36,32 +62,69 @@ export function Emails() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const loadFromHistory = (item: EmailHistoryItem) => {
+    setEmailInput(item.original_email);
+    setSuggestion(item.suggested_reply);
+    setShowHistory(false);
+  };
+
   return (
     <div className="flex h-full bg-gradient-to-br from-[#FFF8DC] to-[#F5F0E0]">
       {/* Left Panel — Email Input */}
       <div className="w-1/2 p-6 flex flex-col border-r border-[#E8DCC8]">
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#AB8E51] to-[#806B64] flex items-center justify-center shadow-md">
-            <Mail className="w-5 h-5 text-white" />
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#AB8E51] to-[#806B64] flex items-center justify-center shadow-md">
+              <Mail className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Paste Your Email</h2>
+              <p className="text-xs text-gray-500">Paste the email you received and get a professional reply suggestion</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Paste Your Email</h2>
-            <p className="text-xs text-gray-500">Paste the email you received and get a professional reply suggestion</p>
-          </div>
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#D4C9B0] bg-white text-sm text-gray-700 hover:bg-gray-50"
+          >
+            <History className="w-4 h-4" />
+            History ({history.length})
+          </button>
         </div>
 
-        {/* Email Input Area */}
+        {showHistory && (
+          <div className="mb-4 max-h-48 overflow-y-auto rounded-xl border border-[#D4C9B0] bg-white shadow-sm">
+            {loadingHistory ? (
+              <p className="p-4 text-sm text-gray-400">Loading…</p>
+            ) : history.length === 0 ? (
+              <p className="p-4 text-sm text-gray-400">No past suggestions</p>
+            ) : (
+              history.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => loadFromHistory(item)}
+                  className="w-full text-left px-4 py-3 border-b border-gray-100 last:border-0 hover:bg-[#FFF8DC] transition-colors"
+                >
+                  <p className="text-sm text-gray-800 truncate">
+                    {item.original_email.slice(0, 120)}{item.original_email.length > 120 ? "…" : ""}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {item.timestamp ? new Date(item.timestamp).toLocaleString() : ""}
+                  </p>
+                </button>
+              ))
+            )}
+          </div>
+        )}
+
         <div className="flex-1 flex flex-col">
           <textarea
             value={emailInput}
             onChange={(e) => setEmailInput(e.target.value)}
-            placeholder="Paste the email you received here...&#10;&#10;Example:&#10;Dear Legal Team,&#10;&#10;We need your review on the Q1 2026 compliance documentation..."
+            placeholder={"Paste the email you received here...\n\nExample:\nDear Legal Team,\n\nWe need your review on the Q1 2026 compliance documentation..."}
             className="flex-1 w-full p-5 border border-[#D4C9B0] rounded-xl bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#AB8E51] focus:border-transparent resize-none text-gray-700 leading-relaxed placeholder:text-gray-400 placeholder:leading-relaxed"
             style={{ minHeight: "300px" }}
           />
 
-          {/* Generate Button */}
           <button
             onClick={handleGenerate}
             disabled={loading || !emailInput.trim()}
@@ -85,10 +148,9 @@ export function Emails() {
             )}
           </button>
 
-          {/* Privacy Notice */}
           <div className="mt-3 flex items-start gap-2 p-3 rounded-lg bg-[#AB8E51]/10 border border-[#AB8E51]/20">
             <span className="text-xs text-[#806B64] leading-relaxed">
-              🔒 <strong>Privacy:</strong> Names and email addresses are automatically redacted before being sent to the AI. They are restored in the final suggestion.
+              🔒 <strong>Privacy:</strong> PII is anonymized server-side before the Groq API call and restored in the final suggestion.
             </span>
           </div>
         </div>
@@ -96,7 +158,6 @@ export function Emails() {
 
       {/* Right Panel — Generated Suggestion */}
       <div className="w-1/2 p-6 flex flex-col">
-        {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FFD42D] to-[#F0C020] flex items-center justify-center shadow-md">
@@ -128,7 +189,6 @@ export function Emails() {
           )}
         </div>
 
-        {/* Suggestion Display */}
         <div className="flex-1 rounded-xl border border-[#D4C9B0] bg-white shadow-sm overflow-hidden flex flex-col">
           {suggestion ? (
             <div className="flex-1 p-5 overflow-y-auto">
@@ -150,7 +210,6 @@ export function Emails() {
             </div>
           )}
         </div>
-
       </div>
     </div>
   );
