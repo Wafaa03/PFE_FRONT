@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Send, Upload, ExternalLink } from "lucide-react";
+import { apiFetch } from "../lib/auth";
 
 interface Message {
   id: number;
@@ -28,9 +29,8 @@ export function AIAssistant() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://127.0.0.1:5000/api/chat", {
+      const response = await apiFetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: userQuery }),
       });
 
@@ -42,15 +42,38 @@ export function AIAssistant() {
           { id: prev.length + 1, type: "ai", content: "Error: " + data.message },
         ]);
       } else {
-        const formattedSources = (data.sources || []).map((src: any) => {
+        // 1. Format and clean the sources
+        let formattedSources = (data.sources || []).map((src: any) => {
           const meta = src.metadata || {};
-          const sourceTitle = meta.title || meta.sheet || meta.website || "Legal Document";
+          const sourceTitle = meta.title || meta.sheet || "Legal Document";
+          
+          let cleanText = src.text || "No content available.";
+          // Remove the raw prefixed metadata
+          cleanText = cleanText.replace(/^Source:.*?Article[^:]*:\s*/i, '');
+          
+          // Build a clean header with all the metadata
+          const headerParts = [];
+          if (meta.website) headerParts.push(`Source: ${meta.website}`);
+          if (meta.type) headerParts.push(`Type: ${meta.type}`);
+          if (meta.reference) headerParts.push(`Réf: ${meta.reference}`);
+          if (meta.article_number) headerParts.push(`Article ${meta.article_number}`);
+          
           return {
-            title: `${meta.type || "Doc"} - ${sourceTitle}`,
-            reference: meta.article_number ? `Article ${meta.article_number}` : "Full Document",
-            text: src.text || "No content available."
+            title: headerParts.length > 0 ? headerParts.join(" | ") : "Document Légal",
+            reference: sourceTitle !== "Legal Document" ? sourceTitle : "",
+            text: cleanText.trim()
           };
         });
+
+        // 2. Deduplicate sources based on identical text content to avoid spamming the UI
+        const uniqueSources = [];
+        const seenText = new Set();
+        for (const source of formattedSources) {
+          if (!seenText.has(source.text)) {
+            seenText.add(source.text);
+            uniqueSources.push(source);
+          }
+        }
 
         setMessages((prev) => [
           ...prev,
@@ -58,7 +81,7 @@ export function AIAssistant() {
             id: prev.length + 1,
             type: "ai",
             content: data.answer,
-            sources: formattedSources,
+            sources: uniqueSources,
           },
         ]);
       }

@@ -1,13 +1,12 @@
 import { Navigate } from "react-router";
+import { isAuthenticated } from "../lib/auth";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const isAuthenticated = localStorage.getItem("legalAI_authenticated") === "true";
-
-  if (!isAuthenticated) {
+  if (!isAuthenticated()) {
     return <Navigate to="/login" replace />;
   }
 

@@ -1,45 +1,12 @@
 import { useState } from "react";
 import { Send, Sparkles, Copy, Check, Loader2, Mail, MessageSquare } from "lucide-react";
+import { apiFetch } from "../lib/auth";
 
 export function Emails() {
   const [emailInput, setEmailInput] = useState("");
   const [suggestion, setSuggestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [extractedNames, setExtractedNames] = useState<string[]>([]);
-
-  // Privacy layer: extract names before sending
-  const extractNames = (text: string): string[] => {
-    const namePattern = /\b[A-Z][a-z]+\s[A-Z][a-z]+\b/g;
-    const matches = text.match(namePattern);
-    return matches ? Array.from(new Set(matches)) : [];
-  };
-
-  // Redact personal info before sending to LLM
-  const redactForPrivacy = (text: string): string => {
-    let redacted = text.replace(
-      /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,
-      "[REDACTED_EMAIL]"
-    );
-    redacted = redacted.replace(
-      /\b[A-Z][a-z]+\s[A-Z][a-z]+\b/g,
-      "[REDACTED_NAME]"
-    );
-    return redacted;
-  };
-
-  // Restore names in the LLM response
-  const restoreNames = (text: string, names: string[]): string => {
-    let restored = text;
-    let nameIndex = 0;
-    restored = restored.replace(/\[REDACTED_NAME\]/g, () => {
-      if (nameIndex < names.length) {
-        return names[nameIndex++];
-      }
-      return "[Name]";
-    });
-    return restored;
-  };
 
   const handleGenerate = async () => {
     if (!emailInput.trim()) return;
@@ -47,26 +14,14 @@ export function Emails() {
     setSuggestion("");
 
     try {
-      // Step 1: Extract names for privacy
-      const names = extractNames(emailInput);
-      setExtractedNames(names);
-
-      // Step 2: Redact personal info before sending to LLM
-      const redactedEmail = redactForPrivacy(emailInput);
-
-      // Step 3: Send redacted email to backend
-      const response = await fetch("http://127.0.0.1:5000/api/email-suggest", {
+      // Privacy anonymization is handled server-side before the Groq API call.
+      const response = await apiFetch("/api/email-suggest", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email_body: redactedEmail }),
+        body: JSON.stringify({ email_body: emailInput }),
       });
 
       const data = await response.json();
-      const rawAnswer = data.answer || "";
-
-      // Step 4: Restore names in the response
-      const restoredAnswer = restoreNames(rawAnswer, names);
-      setSuggestion(restoredAnswer);
+      setSuggestion(data.answer || "");
     } catch (err) {
       console.error("Suggestion fetch failed", err);
       setSuggestion("[Error generating suggestion. Make sure the backend is running.]");
@@ -196,22 +151,6 @@ export function Emails() {
           )}
         </div>
 
-        {/* Extracted Names Info */}
-        {extractedNames.length > 0 && suggestion && (
-          <div className="mt-3 p-3 rounded-lg bg-white border border-[#D4C9B0] shadow-sm">
-            <p className="text-xs font-medium text-gray-600 mb-1">🏷️ Detected Names (restored in reply):</p>
-            <div className="flex flex-wrap gap-2">
-              {extractedNames.map((name, i) => (
-                <span
-                  key={i}
-                  className="px-2 py-1 text-xs rounded-md bg-[#AB8E51]/10 text-[#806B64] border border-[#AB8E51]/20"
-                >
-                  {name}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

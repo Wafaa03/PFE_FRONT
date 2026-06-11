@@ -1,8 +1,18 @@
 import { Outlet, NavLink, useNavigate } from "react-router";
-import { Home, Mail, MessageSquare, FileText, BookOpen, LogOut } from "lucide-react";
+import { Home, Mail, MessageSquare, BookOpen, LogOut } from "lucide-react";
+import { clearAuth, getUser } from "../lib/auth";
 
 export function Layout() {
   const navigate = useNavigate();
+  const user = getUser();
+  const displayName = user?.fullName || user?.username || "User";
+  const displayDept = user?.department || user?.role || "";
+  const initials = displayName
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
   const menuItems = [
     { path: "/", label: "Home", icon: Home },
     { path: "/emails", label: "Emails", icon: Mail },
@@ -12,8 +22,7 @@ export function Layout() {
   ];
 
   const handleLogout = () => {
-    localStorage.removeItem("legalAI_authenticated");
-    localStorage.removeItem("legalAI_user");
+    clearAuth();
     navigate("/login");
   };
 
@@ -74,11 +83,11 @@ export function Layout() {
             </div>
             <div className="flex items-center gap-3">
               <div className="text-right">
-                <div className="text-sm font-medium text-gray-900">Legal Team</div>
-                <div className="text-xs text-gray-500">Banking Division</div>
+                <div className="text-sm font-medium text-gray-900">{displayName}</div>
+                <div className="text-xs text-gray-500">{displayDept}</div>
               </div>
               <div className="w-10 h-10 rounded-full bg-[#AB8E51] flex items-center justify-center text-white font-medium">
-                LT
+                {initials}
               </div>
             </div>
           </div>
