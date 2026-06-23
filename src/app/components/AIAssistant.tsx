@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useLocation } from "react-router";
 import { Send, Upload, ExternalLink, Plus, Trash2, MessageSquare } from "lucide-react";
 import { apiFetch } from "../lib/auth";
 
@@ -16,6 +17,8 @@ interface ChatSession {
 }
 
 export function AIAssistant() {
+  const location = useLocation();
+  const stateSessionId = location.state?.sessionId;
   const [messages, setMessages] = useState<Message[]>([]);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [sessionId, setSessionId] = useState<number | null>(null);
@@ -57,6 +60,12 @@ export function AIAssistant() {
   useEffect(() => {
     loadSessions();
   }, [loadSessions]);
+
+  useEffect(() => {
+    if (stateSessionId && stateSessionId !== sessionId) {
+      loadSessionMessages(stateSessionId);
+    }
+  }, [stateSessionId, sessionId, loadSessionMessages]);
 
   const handleNewChat = () => {
     setSessionId(null);

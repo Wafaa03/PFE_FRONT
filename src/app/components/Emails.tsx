@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Send, Sparkles, Copy, Check, Loader2, Mail, MessageSquare, History } from "lucide-react";
+import { useState } from "react";
+import { Send, Sparkles, Copy, Check, Loader2, Mail, MessageSquare } from "lucide-react";
 import { apiFetch } from "../lib/auth";
 
 interface EmailHistoryItem {
@@ -14,22 +14,6 @@ export function Emails() {
   const [suggestion, setSuggestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [history, setHistory] = useState<EmailHistoryItem[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(true);
-  const [showHistory, setShowHistory] = useState(false);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await apiFetch("/api/email-history");
-        if (res.ok) setHistory(await res.json());
-      } catch (e) {
-        console.error("Failed to load email history", e);
-      } finally {
-        setLoadingHistory(false);
-      }
-    })();
-  }, []);
 
   const handleGenerate = async () => {
     if (!emailInput.trim()) return;
@@ -44,10 +28,6 @@ export function Emails() {
 
       const data = await response.json();
       setSuggestion(data.answer || "");
-
-      // Refresh history
-      const histRes = await apiFetch("/api/email-history");
-      if (histRes.ok) setHistory(await histRes.json());
     } catch (err) {
       console.error("Suggestion fetch failed", err);
       setSuggestion("[Error generating suggestion. Make sure the backend is running.]");
@@ -60,12 +40,6 @@ export function Emails() {
     navigator.clipboard.writeText(suggestion);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  };
-
-  const loadFromHistory = (item: EmailHistoryItem) => {
-    setEmailInput(item.original_email);
-    setSuggestion(item.suggested_reply);
-    setShowHistory(false);
   };
 
   return (
@@ -82,39 +56,7 @@ export function Emails() {
               <p className="text-xs text-gray-500">Paste the email you received and get a professional reply suggestion</p>
             </div>
           </div>
-          <button
-            onClick={() => setShowHistory(!showHistory)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#D4C9B0] bg-white text-sm text-gray-700 hover:bg-gray-50"
-          >
-            <History className="w-4 h-4" />
-            History ({history.length})
-          </button>
         </div>
-
-        {showHistory && (
-          <div className="mb-4 max-h-48 overflow-y-auto rounded-xl border border-[#D4C9B0] bg-white shadow-sm">
-            {loadingHistory ? (
-              <p className="p-4 text-sm text-gray-400">Loading…</p>
-            ) : history.length === 0 ? (
-              <p className="p-4 text-sm text-gray-400">No past suggestions</p>
-            ) : (
-              history.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => loadFromHistory(item)}
-                  className="w-full text-left px-4 py-3 border-b border-gray-100 last:border-0 hover:bg-[#FFF8DC] transition-colors"
-                >
-                  <p className="text-sm text-gray-800 truncate">
-                    {item.original_email.slice(0, 120)}{item.original_email.length > 120 ? "…" : ""}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {item.timestamp ? new Date(item.timestamp).toLocaleString() : ""}
-                  </p>
-                </button>
-              ))
-            )}
-          </div>
-        )}
 
         <div className="flex-1 flex flex-col">
           <textarea

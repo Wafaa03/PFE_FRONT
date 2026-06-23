@@ -1,310 +1,163 @@
-import { useState } from "react";
-import { Search, Filter, FileText, BookOpen, Scale, ExternalLink } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { FileText, BookOpen, Scale, ExternalLink, UploadCloud, CheckCircle2, MessageSquare, MapPin, Table as TableIcon, Filter, RefreshCw } from "lucide-react";
+import { Link } from "react-router";
+import { apiFetch } from "../lib/auth";
 
 interface Document {
-  id: number;
+  id: string | number;
   title: string;
-  type: "Law" | "Circular" | "Internal Procedure";
+  type: string;
+  site: string;
   date: string;
   description: string;
   content?: string;
   sections?: string[];
+  status: string;
 }
 
-const mockDocuments: Document[] = [
-  {
-    id: 1,
-    title: "Banking Act 2025",
-    type: "Law",
-    date: "Jan 1, 2025",
-    description: "Comprehensive banking regulations covering licensing, operations, and supervision",
-    content: `BANKING ACT 2025
-
-CHAPTER 1: GENERAL PROVISIONS
-
-Article 1: Purpose and Scope
-This Act establishes the legal framework for banking activities, supervision, and regulation of financial institutions operating within the jurisdiction.
-
-Article 2: Definitions
-For the purposes of this Act:
-- "Bank" means any institution authorized to accept deposits and provide lending services
-- "Regulatory Authority" means the Central Bank or designated supervisory body
-- "Capital" means the financial resources as defined in Article 15
-
-CHAPTER 2: LICENSING AND AUTHORIZATION
-
-Article 3: Banking License Requirement
-No person or entity may engage in banking activities without a valid license issued by the Regulatory Authority.
-
-Article 4: Application Requirements
-Applications for banking licenses must include:
-a) Corporate documents and organizational structure
-b) Business plan and financial projections
-c) Details of shareholders and beneficial owners
-d) Qualifications of management and board members
-e) Internal control and risk management frameworks
-
-Article 5: Minimum Capital Requirements
-Banks must maintain minimum capital of:
-- Tier 1 Capital: Not less than $50 million
-- Total Capital Adequacy Ratio: Not less than 12% of risk-weighted assets
-
-CHAPTER 3: OPERATIONAL REQUIREMENTS
-
-Article 6: Corporate Governance
-Banks must establish:
-- Independent board of directors with majority non-executive members
-- Audit committee, risk committee, and compliance committee
-- Clear separation of management and oversight functions
-
-Article 7: Risk Management
-Banks must implement comprehensive risk management frameworks covering:
-- Credit risk
-- Market risk
-- Operational risk
-- Liquidity risk
-- Compliance risk
-
-Article 8: Customer Due Diligence
-Banks must conduct appropriate customer due diligence including:
-- Identity verification
-- Beneficial ownership identification
-- Purpose and nature of business relationship
-- Ongoing monitoring of transactions`,
-    sections: [
-      "Chapter 1: General Provisions",
-      "Chapter 2: Licensing and Authorization",
-      "Chapter 3: Operational Requirements",
-      "Chapter 4: Financial Reporting",
-      "Chapter 5: Enforcement and Penalties",
-    ],
-  },
-  {
-    id: 2,
-    title: "Anti-Money Laundering Circular 2024/08",
-    type: "Circular",
-    date: "Aug 15, 2024",
-    description: "Enhanced due diligence requirements for high-risk transactions and customers",
-    content: `CIRCULAR NO. 2024/08
-ANTI-MONEY LAUNDERING - ENHANCED DUE DILIGENCE
-
-TO: All Licensed Banks and Financial Institutions
-FROM: Financial Intelligence Unit
-DATE: August 15, 2024
-
-SUBJECT: Enhanced Due Diligence Requirements
-
-1. PURPOSE
-This circular provides guidance on enhanced due diligence (EDD) measures for high-risk customers and transactions.
-
-2. SCOPE
-These requirements apply to:
-- Politically Exposed Persons (PEPs)
-- High-risk jurisdictions
-- Complex corporate structures
-- Transactions exceeding $50,000
-
-3. ENHANCED DUE DILIGENCE MEASURES
-Banks must implement the following EDD measures:
-
-a) Source of Wealth and Funds
-- Detailed documentation of customer's source of wealth
-- Verification of source of funds for each transaction
-- Regular updates (at least annually)
-
-b) Enhanced Monitoring
-- Real-time transaction monitoring
-- Quarterly account reviews
-- Investigation of unusual patterns
-
-c) Senior Management Approval
-- Approval required to establish relationship
-- Annual review and re-approval of relationship
-
-4. DOCUMENTATION REQUIREMENTS
-Maintain the following for at least 7 years:
-- Customer identification documents
-- Source of wealth/funds documentation
-- Transaction records and monitoring reports
-- Risk assessment documentation
-
-5. REPORTING OBLIGATIONS
-Report to FIU within 24 hours:
-- Suspicious transactions
-- Attempted transactions by sanctioned entities
-- Transactions involving high-risk jurisdictions`,
-    sections: [
-      "1. Purpose",
-      "2. Scope",
-      "3. Enhanced Due Diligence Measures",
-      "4. Documentation Requirements",
-      "5. Reporting Obligations",
-      "6. Compliance Timeline",
-    ],
-  },
-  {
-    id: 3,
-    title: "Data Protection Act",
-    type: "Law",
-    date: "Jan 1, 2024",
-    description: "Personal data protection, privacy rights, and processing obligations",
-  },
-  {
-    id: 4,
-    title: "Internal Procedure: Vendor Management",
-    type: "Internal Procedure",
-    date: "Feb 10, 2026",
-    description: "Guidelines for selecting, onboarding, and monitoring third-party vendors",
-  },
-  {
-    id: 5,
-    title: "Cross-Border Payment Directive 2025",
-    type: "Circular",
-    date: "Mar 1, 2025",
-    description: "Requirements for processing international payments and foreign exchange",
-  },
-  {
-    id: 6,
-    title: "Internal Procedure: Incident Response",
-    type: "Internal Procedure",
-    date: "Nov 20, 2025",
-    description: "Protocol for handling security incidents and data breaches",
-  },
-  {
-    id: 7,
-    title: "Consumer Protection Regulations",
-    type: "Law",
-    date: "Jun 1, 2024",
-    description: "Rights of banking customers and fair treatment principles",
-  },
-  {
-    id: 8,
-    title: "Risk Management Circular 2025/12",
-    type: "Circular",
-    date: "Dec 1, 2025",
-    description: "Updated framework for enterprise risk management and reporting",
-  },
-];
-
 export function KnowledgeBase() {
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
-  const [filterType, setFilterType] = useState<string>("All");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedType, setSelectedType] = useState<string>("All");
+  const [selectedSite, setSelectedSite] = useState<string>("All");
 
-  const filteredDocuments = mockDocuments.filter((doc) => {
-    const matchesType = filterType === "All" || doc.type === filterType;
-    const matchesSearch =
-      searchQuery === "" ||
-      doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesType && matchesSearch;
-  });
+  useEffect(() => {
+    const fetchRealData = async () => {
+      try {
+        setIsLoading(true);
+        // We will try fetching from the user's backend endpoint 'legal_embeddings'
+        let res = await apiFetch("/api/legal_embeddings");
+        if (!res.ok) {
+          res = await apiFetch("/legal_embeddings");
+        }
+        
+        if (res.ok) {
+          const data = await res.json();
+          // Handle arrays directly, or inside a common wrapper object like 'data' or 'embeddings'
+          const items = Array.isArray(data) ? data : (data.data || data.embeddings || data.items || []);
+          
+          const formattedData = items
+            .filter((item: any) => {
+              const type = (item.type || item.document_type || item.sheet || item.category || "").toLowerCase();
+              const site = (item.site || item.website || "").toLowerCase();
+              return type !== "unknown" && site !== "unknown";
+            })
+            .map((item: any, index: number) => ({
+            id: item.id || item.file_id || index,
+            title: item.title || (item.article_number ? `Article ${item.article_number}` : null) || item.reference || item.file_name || item.name || `Document ${index + 1}`,
+            type: item.type || item.document_type || item.sheet || item.category || "Document",
+            site: item.site || item.website || item.location || item.department || "",
+            date: item.date || item.created_at || item.updated_at || "",
+            description: item.description || item.summary || (item.content ? item.content.substring(0, 120) + "..." : (item.text ? item.text.substring(0, 120) + "..." : "No description available")),
+            content: item.content || item.text || item.raw_text || "Content not available.",
+            status: item.status || "Ready"
+          }));
+          setDocuments(formattedData);
+        } else {
+          console.error("Failed to load legal_embeddings. Status:", res.status);
+        }
+      } catch (err) {
+        console.error("Error fetching legal_embeddings", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case "Law":
-        return <Scale className="w-5 h-5 text-[#AB8E51]" />;
-      case "Circular":
-        return <FileText className="w-5 h-5 text-[#806B64]" />;
-      case "Internal Procedure":
-        return <BookOpen className="w-5 h-5 text-[#FFD42D]" />;
-      default:
-        return <FileText className="w-5 h-5 text-gray-500" />;
-    }
-  };
+    fetchRealData();
+  }, []);
+
+  // Dynamically extract unique types and sites from the real data
+  const types = ["All", ...Array.from(new Set(documents.map(d => d.type)))].filter(Boolean);
+  const sites = ["All", ...Array.from(new Set(documents.map(d => d.site)))].filter(Boolean);
+
+  const filteredDocuments = useMemo(() => {
+    return documents.filter((doc) => {
+      const matchesType = selectedType === "All" || doc.type === selectedType;
+      const matchesSite = selectedSite === "All" || doc.site === selectedSite;
+      return matchesType && matchesSite;
+    });
+  }, [documents, selectedType, selectedSite]);
 
   const getTypeColor = (type: string) => {
-    switch (type) {
-      case "Law":
-        return "bg-[#AB8E51]/10 text-[#AB8E51]";
-      case "Circular":
-        return "bg-[#806B64]/10 text-[#806B64]";
-      case "Internal Procedure":
-        return "bg-[#FFD42D]/20 text-gray-900";
-      default:
-        return "bg-gray-100 text-gray-700";
-    }
+    const t = type?.toLowerCase() || "";
+    if (t.includes("loi")) return "bg-[#AB8E51]/10 text-[#AB8E51] border-[#AB8E51]/20";
+    if (t.includes("circulaire")) return "bg-[#806B64]/10 text-[#806B64] border-[#806B64]/20";
+    if (t.includes("decret") || t.includes("décret")) return "bg-amber-50 text-amber-800 border-amber-200";
+    if (t.includes("arrete") || t.includes("arrêté")) return "bg-orange-50 text-orange-800 border-orange-200";
+    if (t.includes("reglement") || t.includes("règlement")) return "bg-indigo-50 text-indigo-800 border-indigo-200";
+    if (t.includes("directive")) return "bg-violet-50 text-violet-800 border-violet-200";
+    if (t.includes("procedure")) return "bg-[#FFD42D]/20 text-gray-900 border-[#FFD42D]/30";
+    return "bg-gray-100 text-gray-700 border-gray-200";
+  };
+
+  const typeCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    documents.forEach((doc) => {
+      counts[doc.type] = (counts[doc.type] || 0) + 1;
+    });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  }, [documents]);
+
+  const siteCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    documents.forEach((doc) => {
+      counts[doc.site] = (counts[doc.site] || 0) + 1;
+    });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  }, [documents]);
+
+  const getSiteColor = (site: string) => {
+    const s = site?.toLowerCase() || "";
+    if (s.includes("global")) return "bg-blue-50 text-blue-700 border-blue-200";
+    if (s.includes("paris")) return "bg-purple-50 text-purple-700 border-purple-200";
+    if (s.includes("new york") || s.includes("ny")) return "bg-emerald-50 text-emerald-700 border-emerald-200";
+    if (s.includes("london")) return "bg-rose-50 text-rose-700 border-rose-200";
+    return "bg-gray-50 text-gray-700 border-gray-200";
   };
 
   if (selectedDocument) {
     return (
-      <div className="p-8 bg-[#FFF8DC] h-full overflow-auto">
-        <button
-          onClick={() => setSelectedDocument(null)}
-          className="mb-6 px-4 py-2 text-sm text-gray-700 hover:text-gray-900 flex items-center gap-2"
-        >
-          ← Back to Knowledge Base
-        </button>
+      <div className="p-8 bg-[#FAFAFA] h-full overflow-auto">
+        <div className="max-w-6xl mx-auto">
+          <button
+            onClick={() => setSelectedDocument(null)}
+            className="mb-6 px-4 py-2 text-sm font-medium text-gray-600 hover:text-[#AB8E51] flex items-center gap-2 transition-colors bg-white border border-[#D4C9B0] rounded-lg shadow-sm hover:shadow-md"
+          >
+            ← Back to Table
+          </button>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left: Section Navigation */}
-          {selectedDocument.sections && (
-            <div className="lg:col-span-1">
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sticky top-8">
-                <h3 className="font-semibold text-gray-900 mb-4">Sections</h3>
-                <ul className="space-y-2">
-                  {selectedDocument.sections.map((section, index) => (
-                    <li key={index}>
-                      <a
-                        href={`#section-${index}`}
-                        className="text-sm text-gray-700 hover:text-[#AB8E51] flex items-center gap-2"
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                        {section}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          )}
-
-          {/* Center/Right: Document Content */}
-          <div className={selectedDocument.sections ? "lg:col-span-2" : "lg:col-span-3"}>
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 mb-6">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h1 className="text-2xl font-semibold text-gray-900 mb-2">
-                    {selectedDocument.title}
-                  </h1>
-                  <div className="flex items-center gap-3 text-sm text-gray-600">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${getTypeColor(
-                        selectedDocument.type
-                      )}`}
-                    >
-                      {selectedDocument.type}
-                    </span>
-                    <span>{selectedDocument.date}</span>
-                  </div>
+          <div className="bg-white rounded-2xl shadow-sm border border-[#E8DCC8] p-8 mb-6 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#AB8E51] to-[#FFD42D]"></div>
+            
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6 pb-6 border-b border-gray-100">
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className={`inline-flex px-2.5 py-1 rounded-md text-xs font-semibold border ${getTypeColor(selectedDocument.type)}`}>
+                    {selectedDocument.type}
+                  </span>
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold border ${getSiteColor(selectedDocument.site)}`}>
+                    <MapPin className="w-3 h-3" /> {selectedDocument.site}
+                  </span>
                 </div>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                  {selectedDocument.title}
+                </h1>
+                <p className="text-sm text-gray-500">{selectedDocument.date}</p>
               </div>
-
-              <div className="prose max-w-none">
-                <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
-                  {selectedDocument.content || "Document content not available."}
-                </div>
-              </div>
+              
+              <Link 
+                to="/ai-assistant" 
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#AB8E51] to-[#806B64] text-white rounded-lg font-medium text-sm shadow-md hover:shadow-lg transition-all hover:-translate-y-0.5"
+              >
+                <MessageSquare className="w-4 h-4" />
+                Chat with this Doc
+              </Link>
             </div>
 
-            {/* AI Explanation */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-[#806B64] mb-3">AI Explanation</h3>
-              <div className="text-gray-700 leading-relaxed">
-                <p className="mb-3">
-                  This document establishes the fundamental legal framework for{" "}
-                  {selectedDocument.type === "Law"
-                    ? "regulatory compliance"
-                    : selectedDocument.type === "Circular"
-                    ? "operational procedures"
-                    : "internal processes"}{" "}
-                  within the banking sector.
-                </p>
-                <p>
-                  Key requirements include adherence to specified standards, documentation procedures, and
-                  reporting obligations. Organizations must ensure full compliance with all provisions and
-                  maintain appropriate records as stipulated.
-                </p>
+            <div className="prose max-w-none text-gray-700">
+              <div className="whitespace-pre-wrap leading-relaxed font-serif">
+                {selectedDocument.content}
               </div>
             </div>
           </div>
@@ -314,64 +167,177 @@ export function KnowledgeBase() {
   }
 
   return (
-    <div className="p-8 bg-[#FFF8DC] h-full overflow-auto">
-      {/* Page Header */}
-      <h1 className="text-2xl font-semibold text-[#806B64] mb-6">Knowledge Base</h1>
-
-      {/* Search and Filter */}
-      <div className="mb-6 flex gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search documents..."
-            className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#FFD42D] focus:border-transparent"
-          />
-        </div>
-        <div className="relative">
-          <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <select
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-            className="pl-11 pr-8 py-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#FFD42D] focus:border-transparent appearance-none cursor-pointer"
-          >
-            <option value="All">All Types</option>
-            <option value="Law">Law</option>
-            <option value="Circular">Circular</option>
-            <option value="Internal Procedure">Internal Procedure</option>
-          </select>
+    <div className="h-full bg-gradient-to-br from-[#FAFAFA] to-[#F5F0E0] overflow-auto flex flex-col">
+      {/* Sticky Header */}
+      <div className="bg-white/80 backdrop-blur-md border-b border-[#E8DCC8] sticky top-0 z-10 shadow-sm">
+        <div className="max-w-7xl mx-auto px-8 py-5">
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+            <TableIcon className="w-6 h-6 text-[#AB8E51]" /> Article Database
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">Live view of all embedded articles classified by Type and Site.</p>
         </div>
       </div>
 
-      {/* Document Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredDocuments.map((doc) => (
-          <div
-            key={doc.id}
-            onClick={() => setSelectedDocument(doc)}
-            className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 cursor-pointer hover:shadow-md transition-shadow"
-          >
-            <div className="flex items-start gap-3 mb-4">
-              <div className="w-10 h-10 rounded-lg bg-[#FFF8DC] flex items-center justify-center flex-shrink-0">
-                {getTypeIcon(doc.type)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2">{doc.title}</h3>
-                <span
-                  className={`inline-block px-2 py-1 rounded text-xs font-medium ${getTypeColor(
-                    doc.type
-                  )}`}
-                >
-                  {doc.type}
-                </span>
+      <div className="max-w-7xl mx-auto px-8 py-8 w-full flex-1 flex flex-col">
+
+        {/* Classification summary */}
+        {!isLoading && documents.length > 0 && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+            <div className="bg-white rounded-2xl border border-[#E8DCC8] p-5 shadow-sm">
+              <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                <Scale className="w-4 h-4 text-[#AB8E51]" /> Par type ({documents.length} articles)
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {typeCounts.map(([type, count]) => (
+                  <button
+                    key={type}
+                    onClick={() => setSelectedType(type)}
+                    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${getTypeColor(type)} ${
+                      selectedType === type ? "ring-2 ring-[#AB8E51]/40" : "hover:opacity-80"
+                    }`}
+                  >
+                    {type}
+                    <span className="bg-white/60 px-1.5 py-0.5 rounded-md">{count}</span>
+                  </button>
+                ))}
               </div>
             </div>
-            <p className="text-sm text-gray-600 mb-3 line-clamp-2">{doc.description}</p>
-            <div className="text-xs text-gray-500">{doc.date}</div>
+            <div className="bg-white rounded-2xl border border-[#E8DCC8] p-5 shadow-sm">
+              <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-[#806B64]" /> Par site
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {siteCounts.map(([site, count]) => (
+                  <button
+                    key={site}
+                    onClick={() => setSelectedSite(site)}
+                    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${getSiteColor(site)} ${
+                      selectedSite === site ? "ring-2 ring-[#806B64]/40" : "hover:opacity-80"
+                    }`}
+                  >
+                    {site}
+                    <span className="bg-white/60 px-1.5 py-0.5 rounded-md">{count}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-        ))}
+        )}
+        
+        {/* Filters Bar */}
+        <div className="bg-white p-4 rounded-t-2xl border border-[#E8DCC8] border-b-0 flex flex-wrap items-center gap-6 shadow-sm">
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-gray-400" />
+            <span className="text-sm font-semibold text-gray-700">Filter by Type:</span>
+            <div className="flex gap-2 flex-wrap">
+              {types.map(type => (
+                <button
+                  key={type}
+                  onClick={() => setSelectedType(type)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    selectedType === type 
+                    ? "bg-[#AB8E51] text-white shadow-sm" 
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="w-px h-6 bg-gray-200 hidden md:block"></div>
+
+          <div className="flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-gray-400" />
+            <span className="text-sm font-semibold text-gray-700">Filter by Site:</span>
+            <div className="flex gap-2 flex-wrap">
+              {sites.map(site => (
+                <button
+                  key={site}
+                  onClick={() => setSelectedSite(site)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    selectedSite === site 
+                    ? "bg-[#806B64] text-white shadow-sm" 
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  {site}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Excel-style Data Table */}
+        <div className="bg-white border border-[#E8DCC8] rounded-b-2xl shadow-sm overflow-hidden flex-1">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-gray-50 border-b border-[#E8DCC8] text-xs uppercase tracking-wider text-gray-500 font-semibold">
+                  <th className="px-6 py-4">Article</th>
+                  <th className="px-6 py-4">Type</th>
+                  <th className="px-6 py-4">Site</th>
+                  <th className="px-6 py-4">Extrait</th>
+                  <th className="px-6 py-4 text-right">Statut</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center">
+                      <div className="flex flex-col items-center justify-center gap-3">
+                        <RefreshCw className="w-8 h-8 text-[#AB8E51] animate-spin" />
+                        <span className="text-gray-500 font-medium">Loading real data from legal_embeddings...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredDocuments.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                      No articles found matching your filters.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredDocuments.map((doc) => (
+                    <tr 
+                      key={doc.id} 
+                      onClick={() => setSelectedDocument(doc)}
+                      className="hover:bg-[#FAFAFA] transition-colors cursor-pointer group"
+                    >
+                      <td className="px-6 py-4">
+                        <div className="font-semibold text-gray-900 group-hover:text-[#AB8E51] transition-colors">
+                          {doc.title}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wide border ${getTypeColor(doc.type)}`}>
+                          {doc.type}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wide border ${getSiteColor(doc.site)}`}>
+                          <MapPin className="w-3 h-3" /> {doc.site}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="text-sm text-gray-600 line-clamp-2 max-w-md">
+                          {doc.description}
+                        </p>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-600">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Vectorized
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
     </div>
   );
