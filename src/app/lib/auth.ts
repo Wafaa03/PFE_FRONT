@@ -1,4 +1,4 @@
-const API_BASE = "http://127.0.0.1:5000";
+const API_BASE = "http://127.0.0.1:5050";
 const TOKEN_KEY = "legalAI_access_token";
 const USER_KEY = "legalAI_user";
 

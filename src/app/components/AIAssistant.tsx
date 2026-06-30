@@ -165,7 +165,7 @@ export function AIAssistant() {
         {
           id: prev.length + 1,
           type: "ai",
-          content: "Network error. Please make sure the Flask backend is running on port 5000.",
+          content: "Network error. Please make sure the Flask backend is running on port 5050.",
         },
       ]);
     } finally {

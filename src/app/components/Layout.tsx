@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from "react-router";
-import { Home, Mail, MessageSquare, BookOpen, LogOut } from "lucide-react";
+import { Home, Mail, MessageSquare, BookOpen, LogOut, Users, LayoutDashboard, History, FileText } from "lucide-react";
 import { clearAuth, getUser } from "../lib/auth";
 
 export function Layout() {
@@ -17,8 +17,14 @@ export function Layout() {
     { path: "/", label: "Home", icon: Home },
     { path: "/emails", label: "Emails", icon: Mail },
     { path: "/ai-assistant", label: "AI Assistant", icon: MessageSquare },
-
     { path: "/knowledge-base", label: "Knowledge Base", icon: BookOpen },
+  ];
+
+  const adminMenuItems = [
+    { path: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { path: "/admin/users", label: "Users", icon: Users },
+    { path: "/admin/conversations", label: "Conversations", icon: History },
+    { path: "/admin/audit-logs", label: "Audit Logs", icon: FileText },
   ];
 
   const handleLogout = () => {
@@ -54,6 +60,35 @@ export function Layout() {
               </li>
             ))}
           </ul>
+
+          {user?.role === "admin" && (
+            <>
+              <div className="mt-8 mb-4 px-4">
+                <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Administration
+                </h2>
+              </div>
+              <ul className="space-y-2">
+                {adminMenuItems.map((item) => (
+                  <li key={item.path}>
+                    <NavLink
+                      to={item.path}
+                      className={({ isActive }) =>
+                        `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                          isActive
+                            ? "bg-[#FFD42D] text-[#806B64]"
+                            : "text-gray-700 hover:bg-[#BAAEAB]/20"
+                        }`
+                      }
+                    >
+                      <item.icon className="w-5 h-5" />
+                      <span className="font-medium">{item.label}</span>
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </nav>
         
         {/* Logout Button */}
